@@ -87,6 +87,7 @@ fn process_args() -> std::result::Result<Counts, CliError> {
         .arg(Arg::with_name("ord").long("leaf-order").required(false).takes_value(true).possible_values(&["inode","content", "dentry"]).help("optimize order for listing/stat/reads"))
         .arg(Arg::with_name("type").long("type").required(false).takes_value(true).possible_values(&["f", "l", "d", "s","b","c", "p"]).help("filter type"))
         .arg(Arg::with_name("list").long("ls").required(false).takes_value(false).help("list files"))
+        .arg(Arg::with_name("list0").long("ls0").conflicts_with("list").required(false).takes_value(false).help("list files, separating them with a null character"))
         .arg(Arg::with_name("size").short("s").required(false).takes_value(false).help("sum apparent length of matched files. Only counts hardlinked files once. Does not follow symlinks. Implies --leaf-order inode."))
         .arg(Arg::with_name("dirs").index(1).multiple(true).required(false).help("directories to traverse [default: cwd]"))
         .arg(Arg::with_name("prefetch").long("prefetch").takes_value(false).required(false).help("attempt to prefetch directory indices from underlying mount device. requires read permission on device"))
@@ -95,6 +96,7 @@ fn process_args() -> std::result::Result<Counts, CliError> {
     let mut starting_points = matches.values_of_os("dirs").map(|it| it.map(Path::new).map(Path::to_owned).collect()).unwrap_or(vec![]);
     let want_size = matches.is_present("size");
     let list = matches.is_present("list");
+    let list0 = matches.is_present("list0");
     let prefetch = matches.is_present("prefetch");
     let type_filter = matches.value_of("type").map(|t| FileTypeMatcher::from(t.chars().next().unwrap()));
 
@@ -149,6 +151,10 @@ fn process_args() -> std::result::Result<Counts, CliError> {
                     if list {
                         stdout.write_all(e.path().as_os_str().as_bytes())?;
                         writeln!(stdout, "")?;
+                    }
+                    if list0 {
+                        stdout.write_all(e.path().as_os_str().as_bytes())?;
+                        write!(stdout, "\0")?;
                     }
 
                     result.0 += 1;
